@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>คาถานินจา</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<style>
+  body { margin:0; overflow:hidden; background:black; }
+  canvas { position:absolute; top:0; left:0; }
+</style>
+</head>
+<body>
+
+<video id="video" autoplay playsinline style="display:none;"></video>
+<canvas id="canvas"></canvas>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let canCast = false;
+let effect = null;
+
+// MediaPipe
+const hands = new Hands({
+  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+
+hands.setOptions({
+  maxNumHands: 2,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.7
+});
+
+// ระยะ
+function dist(a,b){
+  return Math.hypot(a.x-b.x, a.y-b.y);
+}
+
+hands.onResults(results => {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  ctx.drawImage(video, 0, 0);
+
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length === 2) {
+    let p1 = results.multiHandLandmarks[0][8];
+    let p2 = results.multiHandLandmarks[1][8];
+
+    let d = dist(p1,p2);
+
+    if (d < 0.05) {
+      canCast = true;
+
+      ctx.fillStyle="yellow";
+      ctx.fillText("⚡ พร้อม!", 50,50);
+    }
+  }
+
+  // ปล่อยคาถา
+  if (canCast && (!results.multiHandLandmarks || results.multiHandLandmarks.length < 2)) {
+    effect = {
+      x: canvas.width/2,
+      y: canvas.height/2,
+      radius: 10
+    };
+    canCast = false;
+  }
+
+  drawEffect();
+});
+
+// เอฟเฟกต์พลัง
+function drawEffect(){
+  if (!effect) return;
+
+  ctx.beginPath();
+  ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI*2);
+  ctx.strokeStyle = "cyan";
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  effect.radius += 10;
+
+  if (effect.radius > 300) {
+    effect = null;
+  }
+}
+
+// กล้อง
+const camera = new Camera(video, {
+  onFrame: async () => {
+    await hands.send({image: video});
+  },
+  width: 640,
+  height: 480
+});
+camera.start();
+</script>
+
+</body>
+</html>
